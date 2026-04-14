@@ -1,6 +1,6 @@
 {
   "name": "react-native-thumbify",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Modern React Native thumbnail generator — batch processing, cancellation, smart caching, WebP, TypeScript-first",
   "main": "lib/commonjs/index.js",
   "module": "lib/module/index.js",
@@ -9,8 +9,12 @@
   "source": "src/index.ts",
   "typesVersions": {
     "*": {
-      "expo": ["./lib/typescript/expo.d.ts"],
-      "*": ["./lib/typescript/index.d.ts"]
+      "expo": [
+        "./lib/typescript/expo.d.ts"
+      ],
+      "*": [
+        "./lib/typescript/index.d.ts"
+      ]
     }
   },
   "exports": {
@@ -77,9 +81,18 @@
   },
   "jest": {
     "preset": "react-native",
-    "moduleFileExtensions": ["ts", "tsx", "js", "jsx"],
-    "testMatch": ["**/__tests__/**/*.test.ts"],
-    "setupFiles": ["./jest.setup.js"],
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.test.ts"
+    ],
+    "setupFiles": [
+      "./jest.setup.js"
+    ],
     "transform": {
       "^.+\\.(ts|tsx)$": "babel-jest"
     }
@@ -90,7 +103,12 @@
     "targets": [
       "commonjs",
       "module",
-      ["typescript", { "project": "tsconfig.build.json" }]
+      [
+        "typescript",
+        {
+          "project": "tsconfig.build.json"
+        }
+      ]
     ]
   },
   "codegenConfig": {
