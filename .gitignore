@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+lib/
+
+# Pack output
+*.tgz
+
+# iOS
+ios/Pods/
+ios/build/
+*.xcworkspace
+*.xcuserdata
+
+# Android
+android/build/
+android/.gradle/
+android/local.properties
+*.apk
+*.aab
+
+# Metro
+.metro-health-check*
+
+# TypeScript
+*.tsbuildinfo
+
+# Misc
+.DS_Store
+*.log
+.env
+.env.*
