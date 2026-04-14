@@ -98,8 +98,8 @@ class RNThumbify: NSObject {
 
     do {
       let cgImage = try generator.copyCGImage(at: cmTime, actualTime: &actualTime)
-      let uiImage = UIImage(cgImage: cgImage)
-      let sized   = maxWidth > 0 || maxHeight > 0 ? self.resize(uiImage, maxWidth: maxWidth, maxHeight: maxHeight) : uiImage
+      // generator.maximumSize already downscaled the frame; no second resize needed
+      let sized   = UIImage(cgImage: cgImage)
 
       guard let data = self.encode(sized, format: format, quality: quality / 100.0) else {
         reject("ENCODE_FAILED", "Failed to encode image as \(format)", nil)
@@ -196,6 +196,10 @@ class RNThumbify: NSObject {
 
   @objc
   func clearCache(_ directory: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    guard FileManager.default.fileExists(atPath: directory) else {
+      resolve(nil)
+      return
+    }
     do {
       let files = try FileManager.default.contentsOfDirectory(atPath: directory)
       for file in files where file.hasPrefix("thumbify_") {
@@ -209,6 +213,10 @@ class RNThumbify: NSObject {
 
   @objc
   func getCacheSize(_ directory: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    guard FileManager.default.fileExists(atPath: directory) else {
+      resolve(0)
+      return
+    }
     do {
       let files = try FileManager.default.contentsOfDirectory(atPath: directory)
       var total: Int64 = 0

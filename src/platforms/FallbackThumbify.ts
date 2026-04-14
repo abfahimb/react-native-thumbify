@@ -22,9 +22,15 @@ interface FallbackResult {
 
 function getExpoModule(): ExpoVideoThumbnails | null {
   try {
-    // Dynamic require so bundler doesn't fail if package absent
+    // Use a variable so Metro's static require-resolver does NOT track
+    // expo-video-thumbnails as a hard dependency. A literal-string require
+    // gets assigned a numeric module ID at bundle time; when the package is
+    // absent that ID resolves to "unknown module XXXX" at runtime even inside
+    // a try/catch, causing a noisy Metro error. A variable-based require is
+    // intentionally opaque to the static analyser.
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require('expo-video-thumbnails') as ExpoVideoThumbnails;
+    const pkg = 'expo-video-thumbnails';
+    return require(pkg) as ExpoVideoThumbnails;
   } catch {
     return null;
   }

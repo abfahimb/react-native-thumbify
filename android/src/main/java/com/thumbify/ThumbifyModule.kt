@@ -1,6 +1,7 @@
 package com.thumbify
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.os.Build
 import com.facebook.react.bridge.*
@@ -40,10 +41,12 @@ class ThumbifyModule(reactContext: ReactApplicationContext) :
 
         // Return cached file if exists
         if (outputFile.exists() && outputFile.length() > 0) {
+            val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(outputFile.absolutePath, boundsOpts)
             val result = Arguments.createMap().apply {
                 putString("path", outputFile.absolutePath)
-                putInt("width", 0)  // we don't re-decode just to get dimensions
-                putInt("height", 0)
+                putInt("width", boundsOpts.outWidth.coerceAtLeast(0))
+                putInt("height", boundsOpts.outHeight.coerceAtLeast(0))
                 putInt("size", outputFile.length().toInt())
             }
             promise.resolve(result)
@@ -85,6 +88,9 @@ class ThumbifyModule(reactContext: ReactApplicationContext) :
                 val (compressFormat, mimeExt) = resolveFormat(format)
 
                 outputFile.parentFile?.mkdirs()
+                val thumbWidth = bitmap.width
+                val thumbHeight = bitmap.height
+
                 FileOutputStream(outputFile).use { out ->
                     bitmap.compress(compressFormat, quality, out)
                 }
@@ -94,8 +100,8 @@ class ThumbifyModule(reactContext: ReactApplicationContext) :
 
                 val result = Arguments.createMap().apply {
                     putString("path", outputFile.absolutePath)
-                    putInt("width", bitmap.width)
-                    putInt("height", bitmap.height)
+                    putInt("width", thumbWidth)
+                    putInt("height", thumbHeight)
                     putInt("size", outputFile.length().toInt())
                 }
                 promise.resolve(result)

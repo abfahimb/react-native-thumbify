@@ -148,11 +148,15 @@ export class ThumbnailGenerator {
         throw new ThumbifyError('INVALID_URI', 'endMs must be greater than startMs');
       }
       const range = end > 0 ? end - startMs : null;
-      times = Array.from({ length: frameCount }, (_, i) =>
-        range !== null
-          ? Math.round(startMs + (range / (frameCount - 1)) * i)
-          : Math.round(startMs + i * 1000), // fallback: 1s intervals
-      );
+      if (frameCount === 1) {
+        times = [startMs];
+      } else {
+        times = Array.from({ length: frameCount }, (_, i) =>
+          range !== null
+            ? Math.round(startMs + (range / (frameCount - 1)) * i)
+            : Math.round(startMs + i * 1000), // fallback: 1s intervals
+        );
+      }
     }
 
     const batchItems: BatchItem[] = times.map((t) => ({ ...baseOpts, timeMs: t }));
@@ -167,12 +171,18 @@ export class ThumbnailGenerator {
       },
     });
 
-    // Throw if any frame failed — callers can try/catch individual frames via batch API
-    const fulfilled = batchResults
+    const failed = batchResults.filter((r) => r.status === 'rejected');
+    if (failed.length > 0) {
+      this.log(`generateTimeline: ${failed.length}/${batchResults.length} frames failed`);
+      // If every frame failed, surface the first error so callers aren't left with an empty array
+      if (failed.length === batchResults.length) {
+        throw (failed[0] as Extract<BatchResult, { status: 'rejected' }>).reason;
+      }
+    }
+
+    return batchResults
       .filter((r): r is Extract<BatchResult, { status: 'fulfilled' }> => r.status === 'fulfilled')
       .map((r) => r.value);
-
-    return fulfilled;
   }
 
   // ─── Cache Management ───────────────────────────────────────────────────────

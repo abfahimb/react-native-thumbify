@@ -100,14 +100,16 @@ export class CacheManager {
   /** Remove all expired entries */
   prune(): number {
     const now = Date.now();
-    let pruned = 0;
+    const expired: string[] = [];
     for (const [key, entry] of this.lru) {
       if (now - entry.createdAt > this.cfg.ttl) {
-        this.evict(key);
-        pruned++;
+        expired.push(key);
       }
     }
-    return pruned;
+    for (const key of expired) {
+      this.evict(key);
+    }
+    return expired.length;
   }
 
   clear(): void {

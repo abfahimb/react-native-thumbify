@@ -22,16 +22,31 @@ export class TaskQueue {
         return;
       }
 
-      const wrappedResolve = (v: unknown) => resolve(v as T);
-      this.queue.push({ task: task as Task<unknown>, resolve: wrappedResolve, reject });
+      // Keep a reference to the abort handler so we can remove it when the
+      // task settles — prevents listener accumulation on long-lived signals.
+      let abortHandler: (() => void) | undefined;
+      const cleanup = () => {
+        if (abortHandler) signal?.removeEventListener('abort', abortHandler);
+      };
 
-      signal?.addEventListener('abort', () => {
-        const idx = this.queue.findIndex((q) => q.resolve === wrappedResolve);
-        if (idx !== -1) {
-          this.queue.splice(idx, 1);
-          reject(new ThumbifyError('CANCELLED', 'Task cancelled while queued'));
-        }
-      }, { once: true });
+      const entry: { task: Task<unknown>; resolve: (v: unknown) => void; reject: (e: unknown) => void } = {
+        task: task as Task<unknown>,
+        resolve: (v) => { cleanup(); resolve(v as T); },
+        reject:  (e) => { cleanup(); reject(e); },
+      };
+
+      this.queue.push(entry);
+
+      if (signal) {
+        abortHandler = () => {
+          const idx = this.queue.findIndex((q) => q === entry);
+          if (idx !== -1) {
+            this.queue.splice(idx, 1);
+            reject(new ThumbifyError('CANCELLED', 'Task cancelled while queued'));
+          }
+        };
+        signal.addEventListener('abort', abortHandler, { once: true });
+      }
 
       this.drain();
     });
