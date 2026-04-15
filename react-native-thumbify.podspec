@@ -10,9 +10,10 @@ Pod::Spec.new do |s|
   s.license      = package["license"]
   s.authors      = { "Author" => "author@example.com" }
   s.platforms    = { :ios => "13.0" }
+  s.swift_versions = ["5.4"]
 
   s.source       = { :git => "https://github.com/your-org/react-native-thumbify.git", :tag => "#{s.version}" }
-  s.source_files = "ios/**/*.{h,m,mm,swift}"
+  s.source_files = "ios/**/*.{h,mm,swift}"
 
-  s.dependency "React-Core"
+  s.dependency "ExpoModulesCore"
 end

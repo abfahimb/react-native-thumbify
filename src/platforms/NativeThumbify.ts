@@ -1,4 +1,4 @@
-import { NativeModules } from 'react-native';
+import { requireNativeModule } from 'expo-modules-core';
 import { ThumbifyError } from '../types';
 import type { ThumbnailOptions } from '../types';
 
@@ -9,7 +9,7 @@ interface NativeResult {
   size: number;
 }
 
-interface NativeThumbifyModule {
+interface ThumbifyNativeModule {
   generate(options: {
     uri: string;
     timeMs: number;
@@ -27,21 +27,70 @@ interface NativeThumbifyModule {
   getCacheSize(directory: string): Promise<number>;
 }
 
-const LINKING_ERROR =
-  'react-native-thumbify native module not linked. ' +
-  'Run `pod install` (iOS) or rebuild (Android). ' +
-  'For Expo managed projects use the Expo fallback: import from "react-native-thumbify/expo"';
-
-function getNativeModule(): NativeThumbifyModule {
-  const mod = NativeModules.RNThumbify as NativeThumbifyModule | undefined;
-  if (!mod) {
-    throw new ThumbifyError('NATIVE_ERROR', LINKING_ERROR);
-  }
-  return mod;
+let _native: ThumbifyNativeModule | null = null;
+try {
+  _native = requireNativeModule<ThumbifyNativeModule>('Thumbify');
+} catch {
+  _native = null;
 }
 
 export function isNativeAvailable(): boolean {
-  return !!NativeModules.RNThumbify;
+  return _native !== null;
+}
+
+/**
+ * Extract the error code from native error messages formatted as "CODE: message".
+ * Falls back to keyword scanning for backward compatibility.
+ */
+function mapNativeError(err: unknown, uri: string): ThumbifyError {
+  const raw = err instanceof Error ? err.message : String(err);
+  const colonIdx = raw.indexOf(':');
+
+  if (colonIdx > 0) {
+    const prefix = raw.slice(0, colonIdx).trim();
+    const message = raw.slice(colonIdx + 1).trim();
+    const knownCodes = [
+      'INVALID_URI', 'DECODE_FAILED', 'TIMEOUT', 'CANCELLED',
+      'NETWORK_ERROR', 'PERMISSION_DENIED', 'DISK_FULL', 'ENCODE_FAILED', 'NATIVE_ERROR',
+    ] as const;
+    if ((knownCodes as readonly string[]).includes(prefix)) {
+      return new ThumbifyError(prefix as (typeof knownCodes)[number], message, { uri, cause: err });
+    }
+  }
+
+  // Keyword fallback
+  const msg = raw.toLowerCase();
+  if (msg.includes('cancelled') || msg.includes('abort')) {
+    return new ThumbifyError('CANCELLED', raw, { uri, cause: err });
+  }
+  if (msg.includes('timeout') || msg.includes('timed out')) {
+    return new ThumbifyError('TIMEOUT', `Timed out generating thumbnail: ${uri}`, { uri, cause: err });
+  }
+  if (msg.includes('network') || msg.includes('connect') || msg.includes('socket')) {
+    return new ThumbifyError('NETWORK_ERROR', `Network error: ${raw}`, { uri, cause: err });
+  }
+  if (msg.includes('permission') || msg.includes('denied')) {
+    return new ThumbifyError('PERMISSION_DENIED', `Permission denied: ${raw}`, { uri, cause: err });
+  }
+  if (msg.includes('decode') || msg.includes('codec') || msg.includes('format')) {
+    return new ThumbifyError('DECODE_FAILED', `Cannot decode video: ${raw}`, { uri, cause: err });
+  }
+  if (msg.includes('space') || msg.includes('disk') || msg.includes('storage')) {
+    return new ThumbifyError('DISK_FULL', `Disk full: ${raw}`, { uri, cause: err });
+  }
+  return new ThumbifyError('NATIVE_ERROR', raw, { uri, cause: err });
+}
+
+function getNative(): ThumbifyNativeModule {
+  if (!_native) {
+    throw new ThumbifyError(
+      'NATIVE_ERROR',
+      'react-native-thumbify: native module not linked. ' +
+        'Ensure expo-modules-core is installed and run `pod install` (iOS) or rebuild (Android). ' +
+        'Expo managed projects: run `expo prebuild` after installing the package.',
+    );
+  }
+  return _native;
 }
 
 export async function nativeGenerate(
@@ -49,10 +98,8 @@ export async function nativeGenerate(
   cacheDir: string,
   cacheFilename: string,
 ): Promise<NativeResult> {
-  const mod = getNativeModule();
-
   try {
-    return await mod.generate({
+    return await getNative().generate({
       uri: opts.uri,
       timeMs: opts.timeMs ?? 0,
       format: opts.format ?? 'jpeg',
@@ -65,37 +112,15 @@ export async function nativeGenerate(
       cacheFilename,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-
-    if (msg.includes('cancelled') || msg.includes('abort')) {
-      throw new ThumbifyError('CANCELLED', 'Native generation cancelled', { uri: opts.uri, cause: err });
-    }
-    if (msg.includes('timeout') || msg.includes('timed out')) {
-      throw new ThumbifyError('TIMEOUT', `Timed out generating thumbnail: ${opts.uri}`, { uri: opts.uri, cause: err });
-    }
-    if (msg.includes('network') || msg.includes('connect') || msg.includes('socket')) {
-      throw new ThumbifyError('NETWORK_ERROR', `Network error: ${msg}`, { uri: opts.uri, cause: err });
-    }
-    if (msg.includes('permission') || msg.includes('denied')) {
-      throw new ThumbifyError('PERMISSION_DENIED', `Permission denied: ${msg}`, { uri: opts.uri, cause: err });
-    }
-    if (msg.includes('decode') || msg.includes('codec') || msg.includes('format')) {
-      throw new ThumbifyError('DECODE_FAILED', `Cannot decode video: ${msg}`, { uri: opts.uri, cause: err });
-    }
-    if (msg.includes('space') || msg.includes('disk') || msg.includes('storage')) {
-      throw new ThumbifyError('DISK_FULL', `Disk full: ${msg}`, { uri: opts.uri, cause: err });
-    }
-
-    throw new ThumbifyError('NATIVE_ERROR', msg, { uri: opts.uri, cause: err });
+    if (err instanceof ThumbifyError) throw err;
+    throw mapNativeError(err, opts.uri);
   }
 }
 
 export async function nativeClearCache(directory: string): Promise<void> {
-  const mod = getNativeModule();
-  return mod.clearCache(directory);
+  return getNative().clearCache(directory);
 }
 
 export async function nativeGetCacheSize(directory: string): Promise<number> {
-  const mod = getNativeModule();
-  return mod.getCacheSize(directory);
+  return getNative().getCacheSize(directory);
 }

@@ -3,8 +3,7 @@ import { TaskQueue } from './queue/TaskQueue';
 import { Deduplicator } from './utils/dedup';
 import { buildCacheFilename, buildCacheKey } from './utils/hash';
 import { withRetry } from './utils/retry';
-import { isNativeAvailable, nativeClearCache, nativeGenerate } from './platforms/NativeThumbify';
-import { fallbackGenerate } from './platforms/FallbackThumbify';
+import { nativeClearCache, nativeGenerate } from './platforms/NativeThumbify';
 import {
   ThumbifyError,
   type BatchItem,
@@ -62,13 +61,7 @@ export class ThumbnailGenerator {
     const retryConfig = opts.retry !== undefined ? opts.retry : this.cfg.retry;
 
     const raw = await withRetry(
-      () => {
-        if (isNativeAvailable()) {
-          return nativeGenerate(opts, cacheDir, cacheFilename);
-        }
-        this.log('Native module not available, using JS fallback');
-        return fallbackGenerate(opts);
-      },
+      () => nativeGenerate(opts, cacheDir, cacheFilename),
       retryConfig,
       opts.signal,
     );
@@ -198,9 +191,7 @@ export class ThumbnailGenerator {
   async clearDiskCache(): Promise<void> {
     if (!this.cache) return;
     this.cache.clear();
-    if (isNativeAvailable()) {
-      await nativeClearCache(this.cache.directory);
-    }
+    await nativeClearCache(this.cache.directory);
   }
 
   cacheStats() {

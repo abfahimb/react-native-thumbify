@@ -37,6 +37,12 @@ repositories {
 }
 
 dependencies {
-  implementation "com.facebook.react:react-android"
+  // expo-modules-core: use project reference when available (Expo / RN with useExpoModules()),
+  // otherwise fall back to the published Maven artifact.
+  if (project.findProject(':expo-modules-core') != null) {
+    implementation project(':expo-modules-core')
+  } else {
+    implementation "expo.modules:expo-modules-core:1.14.0"
+  }
   implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.0"
 }
